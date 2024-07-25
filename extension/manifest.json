@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Trigger Filter",
+  "version": "1.0",
+  "description": "Scans web pages for images and filters out those containing unwanted elements.",
+  "permissions": [
+    "scripting"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ]
+}
