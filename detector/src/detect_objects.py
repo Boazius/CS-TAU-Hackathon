@@ -1,51 +1,38 @@
 from imageai.Detection import ObjectDetection
 import os
-import sys
+import time
 
-def detect_object(image_path, object_name):
-    # Get the current working directory
-    execution_path = os.getcwd()
+class ObjectDetectionModel:
+    def __init__(self, object_names):
+        self.execution_path = os.getcwd()
+        self.detector = ObjectDetection()
+        self.detector.setModelTypeAsTinyYOLOv3()
+        self.detector.setModelPath(os.path.join(self.execution_path, "tiny-yolov3.pt"))
+        self.detector.loadModel()
+        self.custom_objects = self.detector.CustomObjects(**{name: True for name in object_names})
 
-    # Initialize the ObjectDetection object
-    detector = ObjectDetection()
-    
-    # Set model type to TinyYOLOv3
-    detector.setModelTypeAsTinyYOLOv3()
-    
-    # Set model path to the downloaded TinyYOLOv3 model
-    detector.setModelPath(os.path.join(execution_path, "tiny-yolov3.pt"))
-    
-    # Load the model
-    detector.loadModel()
+    def detect_objects(self, image_path):
+        start_time = time.time()
+        detections = self.detector.detectObjectsFromImage(
+            custom_objects=self.custom_objects,
+            input_image=image_path,
+            output_image_path=os.path.join(self.execution_path, "detected_image.jpg"),
+            minimum_percentage_probability=30
+        )
+        detection_time = time.time() - start_time
+        detected_objects = {eachObject["name"] for eachObject in detections}
+        return detected_objects, detection_time
 
-    # Set custom objects for detection
-    custom_objects = detector.CustomObjects(**{object_name: True})
-    
-    # Perform object detection
-    detections = detector.detectObjectsFromImage(
-        custom_objects=custom_objects,
-        input_image=image_path,
-        output_image_path=os.path.join(execution_path, "detected_image.jpg"),
-        minimum_percentage_probability=30
-    )
-
-    # Check if the specified object is detected
-    for eachObject in detections:
-        if eachObject["name"] == object_name:
-            return "yes"
-    return "no"
-
+# Example usage:
 if __name__ == "__main__":
-    # Check if the correct number of arguments are provided
-    if len(sys.argv) != 3:
-        print("Usage: python detect_objects.py <image_path> <object_name>")
+    import sys
+    if len(sys.argv) < 3:
+        print("Usage: python detect_objects.py <image_path> <object_name_1> [<object_name_2> ...]")
     else:
-        # Get image path and object name from command line arguments
         image_path = sys.argv[1]
-        object_name = sys.argv[2]
-        
-        # Run the object detection
-        result = detect_object(image_path, object_name)
-        
-        # Print the result
-        print(result)
+        object_names = sys.argv[2:]
+        model = ObjectDetectionModel(object_names)
+        results, detection_time = model.detect_objects(image_path)
+        detection_results = {name: (name in results) for name in object_names}
+        print(f"Detection Results: {detection_results}")
+        print(f"Detection Time: {detection_time} seconds")
