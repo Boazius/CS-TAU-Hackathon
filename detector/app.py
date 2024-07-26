@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from imageai.Detection import ObjectDetection
+import base64
 import os
 import io
 import time
@@ -17,7 +18,9 @@ class ObjectDetectionModel:
 
     def detect_objects(self, image_data, object_name):
         # Save the image to an in-memory file
-        image = Image.open(io.BytesIO(image_data))
+        image = Image.open(image_data, formats=["PNG"])
+        if image.mode in ("RGBA", "P"):
+            image = image.convert("RGB")
         temp_file_path = os.path.join(self.execution_path, 'temp.jpg')
         image.save(temp_file_path)
         
@@ -37,20 +40,31 @@ class ObjectDetectionModel:
 model = ObjectDetectionModel()
 
 @app.route('/detect', methods=['POST'])
-def detect():
-    if 'object_name' not in request.form or 'image' not in request.files:
-        return jsonify({"error": "Missing object_name or image"}), 400
-
-    object_name = request.form['object_name']
-    image_file = request.files['image']
-    image_data = image_file.read()
+def process_image():
+    data = request.get_json()
+    image_data = data.get('imageData')
     
-    detected, detection_time = model.detect_objects(image_data, object_name)
+    # Decode base64 string
+    if not image_data:
+        return jsonify({'error': 'No image data provided'}), 400
+    
+    try:
+        image_data = image_data.split(',')[1]
+        image_data = io.BytesIO(base64.b64decode(image_data))
+        image = Image.open(image_data)
+        if not image:
+            return jsonify({'error': 'Failed to load image'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+    detected, detection_time = model.detect_objects(image_data, 'horse')
     response = {
         'detected': detected,
         'detection_time': detection_time
     }
     return jsonify(response)
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
